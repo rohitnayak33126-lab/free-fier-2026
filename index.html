@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battle King 3D - Rohit Nayak</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  background: #87ceeb;
+}
+
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  color: white;
+  background: #000a;
+  padding: 12px;
+  border-radius: 10px;
+  line-height: 1.8;
+}
+
+#start {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000b;
+  color: white;
+  text-align: center;
+}
+
+.panel {
+  padding: 25px;
+  max-width: 420px;
+}
+
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 20px;
+  margin: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  background: #ffb300;
+  color: #111;
+  font-weight: bold;
+}
+
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 28px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+#controls {
+  position: fixed;
+  bottom: 15px;
+  left: 15px;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  gap: 5px;
+}
+
+#controls button {
+  padding: 12px 0;
+  margin: 0;
+  background: #111b;
+  color: white;
+  touch-action: none;
+}
+
+#shoot {
+  position: fixed;
+  right: 20px;
+  bottom: 35px;
+  z-index: 5;
+  background: #e53935;
+  color: white;
+  border-radius: 50%;
+  width: 85px;
+  height: 85px;
+}
+
+#message {
+  position: fixed;
+  top: 42%;
+  width: 100%;
+  text-align: center;
+  color: white;
+  font-size: 30px;
+  font-weight: bold;
+  z-index: 6;
+  pointer-events: none;
+  text-shadow: 2px 2px 4px black;
+}
+</style>
+</head>
+
+<body>
+
+<div id="hud">
+  <b>⚔️ BATTLE KING 3D</b><br>
+  👑 Creator: Rohit Nayak<br>
+  ❤️ Health: <span id="health">100</span><br>
+  🎯 Score: <span id="score">0</span><br>
+  👾 Enemies: <span id="enemies">7</span>
+</div>
+
+<div id="crosshair">+</div>
+<div id="message"></div>
+
+<div id="start">
+  <div class="panel">
+    <h1>🔥 BATTLE KING 3D</h1>
+    <p>एक 3D बैटल गेम खेलो!</p>
+    <p>
+      PC: WASD से चलो और माउस से निशाना लगाओ।<br>
+      शूट करने के लिए Left Click दबाओ।
+    </p>
+    <p>7 दुश्मनों को हराकर गेम जीतो!</p>
+    <button id="play">START GAME 🎮</button>
+  </div>
+</div>
+
+<div id="controls">
+  <span></span>
+  <button data-key="w">▲</button>
+  <span></span>
+  <button data-key="a">◀</button>
+  <button data-key="s">▼</button>
+  <button data-key="d">▶</button>
+</div>
+
+<button id="shoot">FIRE 🔫</button>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  if (!window.THREE) {
+    $("message").textContent = "Internet चालू करके गेम Reload करो!";
+    $("start").style.display = "flex";
+    return;
+  }
+
+  // Scene
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
+  scene.fog = new THREE.Fog(0x87ceeb, 35, 100);
+
+  const camera = new THREE.PerspectiveCamera(
+    70, window.innerWidth / window.innerHeight, 0.1, 200
+  );
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  document.body.appendChild(renderer.domElement);
+
+  // Lighting
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x526b36, 2));
+
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(15, 25, 10);
+  sun.castShadow = true;
+  scene.add(sun);
+
+  // Ground
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(120, 120),
+    new THREE.MeshStandardMaterial({ color: 0x4c9b48 })
+  );
+
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Decorations
+  function makeTree(x, z) {
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.35, 2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x70452a })
+    );
+
+    trunk.position.set(x, 1, z);
+    scene.add(trunk);
+
+    const leaves = new THREE.Mesh(
+      new THREE.ConeGeometry(1.5, 3.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x176b35 })
+    );
+
+    leaves.position.set(x, 3.1, z);
+    scene.add(leaves);
+  }
+
+  for (let i = 0; i < 30; i++) {
+    const x = (Math.random() - 0.5) * 90;
+    const z = (Math.random() - 0.5) * 90;
+
+    if (Math.abs(x) > 9 || Math.abs(z) > 9) {
+      makeTree(x, z);
+    }
+  }
+
+  // Simple buildings
+  for (let i = 0; i < 6; i++) {
+    const building = new THREE.Mesh(
+      new THREE.BoxGeometry(4, 3, 4),
+      new THREE.MeshStandardMaterial({
+        color: i % 2 ? 0xc9b79c : 0xb4c6d3
+      })
+    );
+
+    building.position.set(
+      (Math.random() - 0.5) * 55,
+      1.5,
+      (Math.random() - 0.5) * 55
+    );
+
+    scene.add(building);
+  }
+
+  // Player
+  const player = new THREE.Group();
+  scene.add(player);
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.8, 1.2, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x1674df })
+  );
+
+  body.position.y = 1.2;
+  body.castShadow = true;
+  player.add(body);
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.32, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0xffc89b })
+  );
+
+  head.position.y = 2.05;
+  player.add(head);
+
+  // Gun
+  const gun = new THREE.Mesh(
+    new THREE.BoxGeometry(0.18, 0.18, 0.85),
+    new THREE.MeshStandardMaterial({ color: 0x222222 })
+  );
+
+  gun.position.set(0.48, 1.4, -0.35);
+  player.add(gun);
+
+  player.position.set(0, 0, 0);
+
+  // Camera rotation
+  let yaw = 0;
+  let pitch = 0;
+  let started = false;
+  let gameOver = false;
+
+  const keys = {};
+  const enemies = [];
+  const bullets = [];
+  const raycaster = new THREE.Raycaster();
+
+  let health = 100;
+  let score = 0;
+  let lastEnemyAttack = 0;
+  let lastShot = 0;
+
+  // Create 7 enemies
+  function makeEnemy(x, z) {
+    const enemy = new THREE.Group();
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xc62828
+    });
+
+    const enemyBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 1.2, 0.5),
+      material
+    );
+
+    enemyBody.position.y = 1.2;
+    enemy.add(enemyBody);
+
+    const enemyHead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.32, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffccaa })
+    );
+
+    enemyHead.position.y = 2.05;
+    enemy.add(enemyHead);
+
+    enemy.position.set(x, 0, z);
+    enemy.userData.hp = 3;
+    enemy.userData.lastHit = 0;
+    enemy.userData.body = enemyBody;
+
+    enemy.traverse(obj => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.userData.enemy = enemy;
+      }
+    });
+
+    scene.add(enemy);
+    enemies.push(enemy);
+  }
+
+  for (let i = 0; i < 7; i++) {
+    const angle = (i / 7) * Math.PI * 2;
+    makeEnemy(
+      Math.sin(angle) * 15,
+      Math.cos(angle) * 15
+    );
+  }
+
+  // UI
+  function updateHUD() {
+    $("health").textContent = Math.max(0, Math.ceil(health));
+    $("score").textContent = score;
+    $("enemies").textContent = enemies.length;
+  }
+
+  function showMessage(text) {
+    $("message").textContent = text;
+  }
+
+  function endGame(won) {
+    gameOver = true;
+    started = false;
+
+    showMessage(won ? "🏆 YOU WIN!" : "💥 GAME OVER");
+
+    $("start").style.display = "flex";
+    $("start").querySelector("h1").textContent =
+      won ? "🏆 VICTORY!" : "💥 GAME OVER";
+
+    $("start").querySelector("p").textContent =
+      "तुम्हारा स्कोर: " + score;
+
+    $("play").textContent = "PLAY AGAIN 🔄";
+
+    if (document.pointerLockElement) {
+      document.exitPointerLock();
+    }
+  }
+
+  // Start game
+  $("play").addEventListener("click", () => {
+    if (started) return;
+
+    resetGame();
+
+    started = true;
+    gameOver = false;
+    $("start").style.display = "none";
+    showMessage("");
+
+    renderer.domElement.requestPointerLock?.();
+  });
+
+  function resetGame() {
+    enemies.forEach(e => scene.remove(e));
+    enemies.length = 0;
+
+    bullets.forEach(b => scene.remove(b.mesh));
+    bullets.length = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const angle = (i / 7) * Math.PI * 2;
+      makeEnemy(
+        Math.sin(angle) * 15,
+        Math.cos(angle) * 15
+      );
+    }
+
+    player.position.set(0, 0, 0);
+    yaw = 0;
+    pitch = 0;
+    health = 100;
+    score = 0;
+    lastEnemyAttack = 0;
+    lastShot = 0;
+
+    updateHUD();
+    camera.rotation.order = "YXZ";
+    camera.rotation.set(0, 0, 0);
+  }
+
+  // Keyboard
+  document.addEventListener("keydown", e => {
+    keys[e.key.toLowerCase()] = true;
+
+    if (["w", "a", "s", "d", " "].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener("keyup", e => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  // Mouse aiming
+  document.addEventListener("mousemove", e => {
+    if (!started || document.pointerLockElement !== renderer.domElement) {
+      return;
+    }
+
+    yaw -= e.movementX * 0.002;
+    pitch -= e.movementY * 0.002;
+
+    pitch = Math.max(-1.1, Math.min(1.1, pitch));
+  });
+
+  // Mobile movement buttons
+  document.querySelectorAll("[data-key]").forEach(button => {
+    const key = button.dataset.key;
+
+    button.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      keys[key] = true;
+      button.setPointerCapture(e.pointerId);
+    });
+
+    const release = () => keys[key] = false;
+
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("lostpointercapture", release);
+  });
+
+  // Touch aiming
+  let touchX = 0;
+  let touchY = 0;
+
+  renderer.domElement.addEventListener("touchstart", e => {
+    if (!started || e.touches.length === 0) return;
+
+    touchX = e.touches[0].clientX;
+    touchY = e.touches[0].clientY;
+  }, { passive: true });
+
+  renderer.domElement.addEventListener("touchmove", e => {
+    if (!started || e.touches.length === 0) return;
+    if (document.pointerLockElement === renderer.domElement) return;
+
+    const touch = e.touches[0];
+
+    const dx = touch.clientX - touchX;
+    const dy = touch.clientY - touchY;
+
+    yaw -= dx * 0.008;
+    pitch -= dy * 0.008;
+
+    pitch = Math.max(-1.1, Math.min(1.1, pitch));
+
+    touchX = touch.clientX;
+    touchY = touch.clientY;
+  }, { passive: true });
+
+  // Shoot
+  function shoot() {
+    if (!started || gameOver) return;
+
+    const now = performance.now();
+
+    if (now - lastShot < 250) return;
+    lastShot = now;
+
+    camera.rotation.order = "YXZ";
+    camera.rotation.set(pitch, yaw, 0);
+
+    const direction = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(camera.quaternion)
+      .normalize();
+
+    const origin = camera.position.clone();
+
+    // Small visible bullet
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffff00 })
+    );
+
+    mesh.position.copy(origin);
+
+    scene.add(mesh);
+
+    bullets.push({
+      mesh,
+      direction,
+      distance: 0
+    });
+
+    // Accurate hit detection
+    raycaster.set(origin, direction);
+
+    const targets = [];
+
+    enemies.forEach(enemy => {
+      enemy.traverse(obj => {
+        if (obj.isMesh) targets.push(obj);
+      });
+    });
+
+    const hits = raycaster.intersectObjects(targets, false);
+
+    if (hits.length > 0) {
+      const enemy = hits[0].object.userData.enemy;
+
+      if (enemy && enemies.includes(enemy)) {
+        enemy.userData.hp--;
+
+        enemy.userData.body.material.color.set(0xffff00);
+
+        setTimeout(() => {
+          if (enemy.parent) {
+            enemy.userData.body.material.color.set(0xc62828);
+          }
+        }, 100);
+
+        if (enemy.userData.hp <= 0) {
+          scene.remove(enemy);
+          enemies.splice(enemies.indexOf(enemy), 1);
+          score += 100;
+          updateHUD();
+
+          if (enemies.length === 0) {
+            endGame(true);
+          }
+        }
+      }
+    }
+  }
+
+  document.addEventListener("mousedown", e => {
+    if (e.button === 0) shoot();
+  });
+
+  $("shoot").addEventListener("pointerdown", e => {
+    e.preventDefault();
+    shoot();
+  });
+
+  // Game loop
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const dt = Math.min(clock.getDelta(), 0.05);
+
+    if (started && !gameOver) {
+      // Player movement
+      const speed = 7 * dt;
+
+      const forward = new THREE.Vector3(
+        -Math.sin(yaw), 0, -Math.cos(yaw)
+      );
+
+      const right = new THREE.Vector3(
+        Math.cos(yaw), 0, -Math.sin(yaw)
+      );
+
+      if (keys.w) player.position.addScaledVector(forward, speed);
+      if (keys.s) player.position.addScaledVector(forward, -speed);
+      if (keys.a) player.position.addScaledVector(right, -speed);
+      if (keys.d) player.position.addScaledVector(right, speed);
+
+      player.position.x = THREE.MathUtils.clamp(
+        player.position.x, -55, 55
+      );
+
+      player.position.z = THREE.MathUtils.clamp(
+        player.position.z, -55, 55
+      );
+
+      player.rotation.y = yaw;
+
+      // Enemies follow player
+      const now = performance.now();
+
+      enemies.forEach(enemy => {
+        const dx = player.position.x - enemy.position.x;
+        const dz = player.position.z - enemy.position.z;
+
+        const distance = Math.hypot(dx, dz);
+
+        if (distance > 2.3) {
+          enemy.position.x += (dx / distance) * dt * 1.4;
+          enemy.position.z += (dz / distance) * dt * 1.4;
+        }
+
+        enemy.rotation.y = Math.atan2(-dx, -dz);
+
+        // Enemies attack when close
+        if (distance < 10 && now - enemy.userData.lastHit > 1200) {
+          enemy.userData.lastHit = now;
+
+          health -= 5;
+          updateHUD();
+
+          if (health <= 0) {
+            endGame(false);
+          }
+        }
+      });
+
+      // Bullet animation
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+
+        bullet.mesh.position.addScaledVector(
+          bullet.direction, dt * 60
+        );
+
+        bullet.distance += dt * 60;
+
+        if (bullet.distance > 100) {
+          scene.remove(bullet.mesh);
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Third-person camera
+      const offset = new THREE.Vector3(
+        Math.sin(yaw) * 6,
+        3.5 + pitch * 1.5,
+        Math.cos(yaw) * 6
+      );
+
+      camera.position.set(
+        player.position.x + offset.x,
+        player.position.y + offset.y,
+        player.position.z + offset.z
+      );
+
+      const lookTarget = new THREE.Vector3(
+        player.position.x - Math.sin(yaw) * 10,
+        player.position.y + 1.8 + pitch * 8,
+        player.position.z - Math.cos(yaw) * 10
+      );
+
+      camera.lookAt(lookTarget);
+
+      // Keep camera orientation consistent for shooting
+      camera.rotation.order = "YXZ";
+      camera.rotation.set(pitch, yaw, 0);
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  animate();
+})();
+</script>
+
+</body>
+</html>
